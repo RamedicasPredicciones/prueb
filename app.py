@@ -59,6 +59,7 @@ if base_df is not None:
                     # Crear un DataFrame con los datos seleccionados
                     consulta_data = {
                         'codarticulo': [codigo],
+                        'articulo': [search_results.iloc[0]['articulo'] if 'articulo' in search_results.columns else None],
                         'lote': [nuevo_lote],
                         'codbarras': [search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None],
                         'nombre': [search_results.iloc[0]['nombre'] if 'nombre' in search_results.columns else None],
