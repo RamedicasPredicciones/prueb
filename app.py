@@ -10,7 +10,8 @@ def cargar_base():
     try:
         response = requests.get(url)
         response.raise_for_status()  # Verificar si la solicitud fue exitosa
-        base = pd.read_excel(io.BytesIO(response.content))
+        # Especificar la hoja a leer
+        base = pd.read_excel(io.BytesIO(response.content), sheet_name="TP's GHG")
         base.columns = base.columns.str.lower().str.strip()  # Normalizar nombres de columnas
         return base
     except Exception as e:
