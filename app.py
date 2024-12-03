@@ -8,12 +8,12 @@ from streamlit_webrtc import VideoTransformerBase, webrtc_streamer
 # Función para cargar los datos desde Google Sheets
 @st.cache_data
 def cargar_base():
-    url = "https://docs.google.com/spreadsheets/d/1Gk-EUifL3fODSc5kJ52gsNsxY9-hC1j4/export?format=xlsx"
+    url = "https://docs.google.com/spreadsheets/d/1Gnbn5Pn_tth_b1GdhJvoEbK7eIbRR8uy/export?format=xlsx"
     try:
         response = requests.get(url)
         response.raise_for_status()  # Verificar si la solicitud fue exitosa
         # Especificar la hoja a leer
-        base = pd.read_excel(io.BytesIO(response.content), sheet_name="TP's GHG")
+        base = pd.read_excel(io.BytesIO(response.content), sheet_name="OP's GHG")
         base.columns = base.columns.str.lower().str.strip()  # Normalizar nombres de columnas
         return base
     except Exception as e:
