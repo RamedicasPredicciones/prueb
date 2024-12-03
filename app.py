@@ -1,77 +1,92 @@
-import streamlit as st
 import pandas as pd
+import streamlit as st
+import io
 
-# Cargar archivos privados de manera segura
+# Función para cargar la base de datos desde el enlace proporcionado
 @st.cache_data
-def load_private_files():
-    maestro_moleculas_df = pd.read_excel('Maestro_Moleculas.xlsx')
-    inventario_api_df = pd.read_excel('Inventario.xlsx')
-    return maestro_moleculas_df, inventario_api_df
+def cargar_base():
+    url_base = "https://docs.google.com/spreadsheets/d/1Gd1NBBrSSQg5J8vSv-bZXyou3UX609Jd/export?format=xlsx"
+    try:
+        response = requests.get(url_base, verify=False)
+        if response.status_code == 200:
+            base_df = pd.read_excel(response.content)
+            base_df.columns = base_df.columns.str.lower().str.strip()
+            return base_df
+        else:
+            st.error("No se pudo cargar la base de datos. Verifica el enlace.")
+            return None
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error en la conexión: {e}")
+        return None
 
-# Función para procesar el archivo de faltantes y generar el resultado
-def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df):
-    faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
-    maestro_moleculas_df.columns = maestro_moleculas_df.columns.str.lower().str.strip()
-    inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
+# Función para guardar los datos seleccionados en un archivo Excel
+def convertir_a_excel(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Consultas")
+    output.seek(0)
+    return output.getvalue()
 
-    cur_faltantes = faltantes_df['cur'].unique()
-    codart_faltantes = faltantes_df['codart'].unique()
+# Configuración de la página
+st.title("Consulta de Artículos y Lotes")
 
-    alternativas_df = maestro_moleculas_df[maestro_moleculas_df['cur'].isin(cur_faltantes)]
+# Cargar la base de datos
+base_df = cargar_base()
 
-    alternativas_inventario_df = pd.merge(
-        alternativas_df,
-        inventario_api_df,
-        on='cur',
-        how='inner',
-        suffixes=('_alternativas', '_inventario')
-    )
+if base_df is not None:
+    # Formulario de búsqueda del código de artículo
+    codigo = st.text_input('Ingrese el código del artículo:')
 
-    alternativas_disponibles_df = alternativas_inventario_df[
-        (alternativas_inventario_df['cantidad'] > 0) &
-        (alternativas_inventario_df['codart_alternativas'].isin(codart_faltantes))
-    ]
+    if codigo:
+        # Filtrar la base por el código de artículo ingresado
+        search_results = base_df[base_df['codarticulo'].str.contains(codigo, case=False, na=False)]
 
-    columnas_deseadas = [
-        'codart_alternativas', 'cur', 'opcion_inventario', 'codart_inventario', 'cantidad', 'bodega'
-    ]
-    columnas_presentes = [col for col in columnas_deseadas if col in alternativas_disponibles_df.columns]
-    alternativas_disponibles_df = alternativas_disponibles_df[columnas_presentes]
+        if not search_results.empty:
+            # Mostrar los lotes disponibles para el código de artículo ingresado
+            lotes = search_results['lote'].unique().tolist()
+            lotes.append('Otro')  # Agregar la opción de "Otro" para escribir un nuevo lote
+            lote_seleccionado = st.selectbox('Seleccione un lote', lotes)
 
-    alternativas_disponibles_df.rename(columns={
-        'codart_alternativas': 'codart_faltante',
-        'opcion_inventario': 'opcion_alternativa',
-        'codart_inventario': 'codart_alternativa'
-    }, inplace=True)
+            # Si el lote seleccionado es "Otro", permitir escribir uno nuevo
+            if lote_seleccionado == 'Otro':
+                nuevo_lote = st.text_input('Ingrese el nuevo número de lote:')
+            else:
+                nuevo_lote = lote_seleccionado
 
-    resultado_final_df = pd.merge(
-        faltantes_df[['cur', 'codart']],
-        alternativas_disponibles_df,
-        left_on=['cur', 'codart'],
-        right_on=['cur', 'codart_faltante'],
-        how='inner'
-    )
+            # Campo para ingresar la cantidad (opcional)
+            cantidad = st.text_input('Ingrese la cantidad (opcional):')
 
-    return resultado_final_df
+            # Botón para guardar la consulta
+            if st.button('Guardar consulta'):
+                if not nuevo_lote:  # Verificar si el nuevo lote está vacío
+                    st.error("Debe ingresar un número de lote válido.")
+                else:
+                    # Obtener la primera fila correspondiente al código para extraer los datos
+                    selected_row = search_results.iloc[0]
 
-# Streamlit UI
-st.title('Generador de Alternativas de Faltantes')
+                    # Crear un DataFrame con los datos seleccionados
+                    consulta_data = {
+                        'codarticulo': [codigo],
+                        'lote': [nuevo_lote],
+                        'codbarras': [selected_row.get('codbarras')],
+                        'Nombre': [selected_row.get('nombre')],
+                        'presentacion': [selected_row.get('presentacion')],
+                        'vencimiento': [selected_row.get('vencimiento')],
+                        'cantidad': [cantidad]
+                    }
 
-uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type="xlsx")
+                    consulta_df = pd.DataFrame(consulta_data)
 
-if uploaded_file:
-    faltantes_df = pd.read_excel(uploaded_file)
-    maestro_moleculas_df, inventario_api_df = load_private_files()
+                    # Crear archivo Excel en memoria
+                    consultas_excel = convertir_a_excel(consulta_df)
 
-    resultado_final_df = procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df)
-
-    st.write("Archivo procesado correctamente.")
-    st.dataframe(resultado_final_df)
-
-    # Botón para descargar el archivo generado
-    st.download_button(
-        label="Descargar archivo de alternativas",
-        data=resultado_final_df.to_excel(index=False, engine='openpyxl'),
-        file_name='alternativas_disponibles.xlsx',
-        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
+                    # Proveer opción de descarga
+                    st.success("Consulta guardada con éxito!")
+                    st.download_button(
+                        label="Descargar Excel con la consulta guardada",
+                        data=consultas_excel,
+                        file_name='consulta_guardada.xlsx',
+                        mime="application/vnd.ms-excel"
+                    )
+        else:
+            st.error("Código de artículo no encontrado en la base de datos.")
