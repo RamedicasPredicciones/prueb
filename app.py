@@ -1,13 +1,16 @@
 import pandas as pd
 import streamlit as st
 import io
+import requests
 
 # Función para cargar los datos desde Google Sheets
 @st.cache_data
 def cargar_base():
     url = "https://docs.google.com/spreadsheets/d/1Gk-EUifL3fODSc5kJ52gsNsxY9-hC1j4/export?format=xlsx"
     try:
-        base = pd.read_excel(url)
+        response = requests.get(url)
+        response.raise_for_status()  # Verificar si la solicitud fue exitosa
+        base = pd.read_excel(io.BytesIO(response.content))
         base.columns = base.columns.str.lower().str.strip()  # Normalizar nombres de columnas
         return base
     except Exception as e:
@@ -63,11 +66,11 @@ if base_df is not None:
                     # Crear un diccionario con los datos seleccionados
                     consulta_data = {
                         'codarticulo': codigo,
-                        'articulo': search_results.iloc[0]['articulo'] if 'articulo' in search_results.columns else None,
+                        'descripción art': search_results.iloc[0]['descripción art'] if 'descripción art' in search_results.columns else None,
                         'lote': nuevo_lote,
                         'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
                         'presentacion': search_results.iloc[0]['presentacion'] if 'presentacion' in search_results.columns else None,
-                        'vencimiento': search_results.iloc[0]['vencimiento'] if 'vencimiento' in search_results.columns else None,
+                        'fecha de vencimiento': search_results.iloc[0]['fecha de vencimiento'] if 'fecha de vencimiento' in search_results.columns else None,
                         'cantidad': cantidad if cantidad else None
                     }
 
@@ -94,4 +97,3 @@ if base_df is not None:
         )
 else:
     st.error("No se pudo cargar la base de datos. Verifica la URL o el formato del archivo.")
-
