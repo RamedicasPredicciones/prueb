@@ -1,87 +1,98 @@
 import pandas as pd
 import streamlit as st
-import requests
 import io
 
-# Función para cargar la base de datos
+# Función para cargar los datos desde Google Sheets
 @st.cache_data
 def cargar_base():
-    url_base = "https://docs.google.com/spreadsheets/d/1Gk-EUifL3fODSc5kJ52gsNsxY9-hC1j4/export?format=xlsx"
-    response = requests.get(url_base, verify=False)
-    if response.status_code == 200:
-        data = response.content
-        base_df = pd.read_excel(io.BytesIO(data))
-        base_df.columns = base_df.columns.str.strip()  # Eliminar espacios en los nombres de columnas
-        return base_df
-    else:
-        st.error(f"Error al cargar la base: {response.status_code}")
-        return pd.DataFrame()
+    url = "https://docs.google.com/spreadsheets/d/1Gd1NBBrSSQg5J8vSv-bZXyou3UX609Jd/export?format=xlsx"
+    try:
+        base = pd.read_excel(url)
+        base.columns = base.columns.str.lower().str.strip()  # Normalizar nombres de columnas
+        return base
+    except Exception as e:
+        st.error(f"Error al cargar la base de datos: {e}")
+        return None
 
-# Configuración inicial de la app
-st.title("Registro de Artículos y Lotes")
+# Función para guardar datos en un archivo Excel
+def convertir_a_excel(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Consulta")
+    output.seek(0)
+    return output
 
-# Cargar la base
+# Configuración de la app
+st.title("Consulta de Artículos y Lotes")
+
+# Cargar la base de datos
 base_df = cargar_base()
 
-# Verificar nombres de columnas
-st.write("Nombres de columnas en la base cargada:", base_df.columns.tolist())
+# Lista para almacenar las entradas
+if "consultas" not in st.session_state:
+    st.session_state.consultas = []
 
-# Contenedor para las entradas
-registros = []
+if base_df is not None:
+    # Entrada del código de artículo
+    codigo = st.text_input('Ingrese el código del artículo:')
 
-# Ingreso de datos
-codigo = st.text_input('Ingrese el código del artículo (codart):')
-
-if codigo:
-    if 'codart' in base_df.columns:
-        # Filtrar la base por el código ingresado
-        search_results = base_df[base_df['codart'].astype(str).str.contains(codigo, case=False, na=False)]
+    if codigo:
+        # Filtrar los lotes del código de artículo ingresado
+        search_results = base_df[base_df['codarticulo'].str.contains(codigo, case=False, na=False)]
 
         if not search_results.empty:
-            # Selección del lote
-            lotes = search_results['LOTE'].unique().tolist()
-            lotes.append('Otro')
+            # Selección de lotes
+            lotes = search_results['lote'].dropna().unique().tolist()
+            lotes.append('Otro')  # Opción para agregar un nuevo lote
             lote_seleccionado = st.selectbox('Seleccione un lote', lotes)
 
-            # Permitir ingreso de un nuevo lote si se selecciona "Otro"
+            # Campo para ingresar un nuevo lote
             if lote_seleccionado == 'Otro':
                 nuevo_lote = st.text_input('Ingrese el nuevo número de lote:')
             else:
                 nuevo_lote = lote_seleccionado
 
-            # Ingreso de cantidad
-            cantidad = st.number_input('Ingrese la cantidad (puede quedar vacía):', min_value=0, step=1, value=0)
+            # Campo opcional para ingresar la cantidad
+            cantidad = st.text_input('Ingrese la cantidad (opcional):')
 
-            # Guardar los datos ingresados
-            if st.button('Agregar registro'):
-                if not nuevo_lote:
+            # Botón para agregar la entrada
+            if st.button('Agregar entrada'):
+                if not nuevo_lote:  # Validar que se ingrese un lote válido
                     st.error("Debe ingresar un número de lote válido.")
                 else:
-                    selected_row = search_results.iloc[0]
-                    nuevo_registro = {
-                        'codart': codigo,
-                        'Descripción art': selected_row.get('Descripción art'),
-                        'LOTE': nuevo_lote,
-                        'cantidad': cantidad if cantidad > 0 else None,
-                        'codbarras': selected_row.get('codbarras'),
-                        'presentacion': selected_row.get('presentacion'),
-                        'FECHA DE VENCIMIENTO': selected_row.get('FECHA DE VENCIMIENTO')
+                    # Crear un diccionario con los datos seleccionados
+                    consulta_data = {
+                        'codarticulo': codigo,
+                        'articulo': search_results.iloc[0]['articulo'] if 'articulo' in search_results.columns else None,
+                        'lote': nuevo_lote,
+                        'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
+                        'nombre': search_results.iloc[0]['nombre'] if 'nombre' in search_results.columns else None,
+                        'presentacion': search_results.iloc[0]['presentacion'] if 'presentacion' in search_results.columns else None,
+                        'vencimiento': search_results.iloc[0]['vencimiento'] if 'vencimiento' in search_results.columns else None,
+                        'cantidad': cantidad if cantidad else None
                     }
-                    registros.append(nuevo_registro)
-                    st.success("Registro agregado con éxito.")
-        else:
-            st.error("Código no encontrado en la base.")
-    else:
-        st.error("La columna 'codart' no está en la base. Verifique los nombres de las columnas.")
 
-# Botón para descargar el archivo Excel con los registros
-if registros:
-    registros_df = pd.DataFrame(registros)
-    registros_excel = convertir_a_excel(registros_df)
-    st.download_button(
-        label="Descargar Excel con los registros",
-        data=registros_excel,
-        file_name="registros_articulos.xlsx",
-        mime="application/vnd.ms-excel"
-    )
+                    # Agregar a la lista de consultas
+                    st.session_state.consultas.append(consulta_data)
+                    st.success("Entrada agregada correctamente!")
+
+        else:
+            st.error("Código de artículo no encontrado en la base de datos.")
+
+    # Mostrar las entradas guardadas
+    if st.session_state.consultas:
+        st.write("Entradas guardadas:")
+        consultas_df = pd.DataFrame(st.session_state.consultas)
+        st.dataframe(consultas_df)
+
+        # Botón para descargar el archivo Excel
+        consultas_excel = convertir_a_excel(consultas_df)
+        st.download_button(
+            label="Descargar Excel con todas las consultas",
+            data=consultas_excel,
+            file_name='consultas_guardadas.xlsx',
+            mime="application/vnd.ms-excel"
+        )
+else:
+    st.error("No se pudo cargar la base de datos. Verifica la URL o el formato del archivo.")
 
