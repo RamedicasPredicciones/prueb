@@ -17,19 +17,14 @@ def cargar_base():
         st.error(f"Error al cargar la base: {response.status_code}")
         return pd.DataFrame()
 
-# Función para guardar múltiples entradas en un Excel en memoria
-def convertir_a_excel(df):
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Resultados")
-    output.seek(0)
-    return output
-
 # Configuración inicial de la app
 st.title("Registro de Artículos y Lotes")
 
 # Cargar la base
 base_df = cargar_base()
+
+# Verificar nombres de columnas
+st.write("Nombres de columnas en la base cargada:", base_df.columns.tolist())
 
 # Contenedor para las entradas
 registros = []
@@ -38,43 +33,46 @@ registros = []
 codigo = st.text_input('Ingrese el código del artículo (codart):')
 
 if codigo:
-    # Filtrar la base por el código ingresado
-    search_results = base_df[base_df['codart'].astype(str).str.contains(codigo, case=False, na=False)]
+    if 'codart' in base_df.columns:
+        # Filtrar la base por el código ingresado
+        search_results = base_df[base_df['codart'].astype(str).str.contains(codigo, case=False, na=False)]
 
-    if not search_results.empty:
-        # Selección del lote
-        lotes = search_results['LOTE'].unique().tolist()
-        lotes.append('Otro')
-        lote_seleccionado = st.selectbox('Seleccione un lote', lotes)
+        if not search_results.empty:
+            # Selección del lote
+            lotes = search_results['LOTE'].unique().tolist()
+            lotes.append('Otro')
+            lote_seleccionado = st.selectbox('Seleccione un lote', lotes)
 
-        # Permitir ingreso de un nuevo lote si se selecciona "Otro"
-        if lote_seleccionado == 'Otro':
-            nuevo_lote = st.text_input('Ingrese el nuevo número de lote:')
-        else:
-            nuevo_lote = lote_seleccionado
-
-        # Ingreso de cantidad
-        cantidad = st.number_input('Ingrese la cantidad (puede quedar vacía):', min_value=0, step=1, value=0)
-
-        # Guardar los datos ingresados
-        if st.button('Agregar registro'):
-            if not nuevo_lote:
-                st.error("Debe ingresar un número de lote válido.")
+            # Permitir ingreso de un nuevo lote si se selecciona "Otro"
+            if lote_seleccionado == 'Otro':
+                nuevo_lote = st.text_input('Ingrese el nuevo número de lote:')
             else:
-                selected_row = search_results.iloc[0]
-                nuevo_registro = {
-                    'codart': codigo,
-                    'Descripción art': selected_row['Descripción art'] if 'Descripción art' in selected_row else None,
-                    'LOTE': nuevo_lote,
-                    'cantidad': cantidad if cantidad > 0 else None,
-                    'codbarras': selected_row['codbarras'] if 'codbarras' in selected_row else None,
-                    'presentacion': selected_row['presentacion'] if 'presentacion' in selected_row else None,
-                    'FECHA DE VENCIMIENTO': selected_row['FECHA DE VENCIMIENTO'] if 'FECHA DE VENCIMIENTO' in selected_row else None
-                }
-                registros.append(nuevo_registro)
-                st.success("Registro agregado con éxito.")
+                nuevo_lote = lote_seleccionado
+
+            # Ingreso de cantidad
+            cantidad = st.number_input('Ingrese la cantidad (puede quedar vacía):', min_value=0, step=1, value=0)
+
+            # Guardar los datos ingresados
+            if st.button('Agregar registro'):
+                if not nuevo_lote:
+                    st.error("Debe ingresar un número de lote válido.")
+                else:
+                    selected_row = search_results.iloc[0]
+                    nuevo_registro = {
+                        'codart': codigo,
+                        'Descripción art': selected_row.get('Descripción art'),
+                        'LOTE': nuevo_lote,
+                        'cantidad': cantidad if cantidad > 0 else None,
+                        'codbarras': selected_row.get('codbarras'),
+                        'presentacion': selected_row.get('presentacion'),
+                        'FECHA DE VENCIMIENTO': selected_row.get('FECHA DE VENCIMIENTO')
+                    }
+                    registros.append(nuevo_registro)
+                    st.success("Registro agregado con éxito.")
+        else:
+            st.error("Código no encontrado en la base.")
     else:
-        st.error("Código no encontrado en la base.")
+        st.error("La columna 'codart' no está en la base. Verifique los nombres de las columnas.")
 
 # Botón para descargar el archivo Excel con los registros
 if registros:
@@ -86,3 +84,4 @@ if registros:
         file_name="registros_articulos.xlsx",
         mime="application/vnd.ms-excel"
     )
+
