@@ -66,11 +66,11 @@ if base_df is not None:
                     # Crear un diccionario con los datos seleccionados
                     consulta_data = {
                         'codarticulo': codigo,
-                        'descripción art': search_results.iloc[0]['descripción art'] if 'descripción art' in search_results.columns else None,
+                        'articulo': search_results.iloc[0]['descripción art'] if 'descripción art' in search_results.columns else None,
                         'lote': nuevo_lote,
                         'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
                         'presentacion': search_results.iloc[0]['presentacion'] if 'presentacion' in search_results.columns else None,
-                        'fecha de vencimiento': search_results.iloc[0]['fecha de vencimiento'] if 'fecha de vencimiento' in search_results.columns else None,
+                        'vencimiento': search_results.iloc[0]['fecha de vencimiento'] if 'fecha de vencimiento' in search_results.columns else None,
                         'cantidad': cantidad if cantidad else None
                     }
 
