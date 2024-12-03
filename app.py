@@ -28,6 +28,10 @@ st.title("Consulta de Artículos y Lotes")
 # Cargar la base de datos
 base_df = cargar_base()
 
+# Lista para almacenar las entradas
+if "consultas" not in st.session_state:
+    st.session_state.consultas = []
+
 if base_df is not None:
     # Entrada del código de artículo
     codigo = st.text_input('Ingrese el código del artículo:')
@@ -51,37 +55,43 @@ if base_df is not None:
             # Campo opcional para ingresar la cantidad
             cantidad = st.text_input('Ingrese la cantidad (opcional):')
 
-            # Guardar la selección en Excel
-            if st.button('Guardar consulta'):
+            # Botón para agregar la entrada
+            if st.button('Agregar entrada'):
                 if not nuevo_lote:  # Validar que se ingrese un lote válido
                     st.error("Debe ingresar un número de lote válido.")
                 else:
-                    # Crear un DataFrame con los datos seleccionados
+                    # Crear un diccionario con los datos seleccionados
                     consulta_data = {
-                        'codarticulo': [codigo],
-                        'articulo': [search_results.iloc[0]['articulo'] if 'articulo' in search_results.columns else None],
-                        'lote': [nuevo_lote],
-                        'codbarras': [search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None],
-                        'nombre': [search_results.iloc[0]['nombre'] if 'nombre' in search_results.columns else None],
-                        'presentacion': [search_results.iloc[0]['presentacion'] if 'presentacion' in search_results.columns else None],
-                        'vencimiento': [search_results.iloc[0]['vencimiento'] if 'vencimiento' in search_results.columns else None],
-                        'cantidad': [cantidad if cantidad else None]
+                        'codarticulo': codigo,
+                        'articulo': search_results.iloc[0]['articulo'] if 'articulo' in search_results.columns else None,
+                        'lote': nuevo_lote,
+                        'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
+                        'nombre': search_results.iloc[0]['nombre'] if 'nombre' in search_results.columns else None,
+                        'presentacion': search_results.iloc[0]['presentacion'] if 'presentacion' in search_results.columns else None,
+                        'vencimiento': search_results.iloc[0]['vencimiento'] if 'vencimiento' in search_results.columns else None,
+                        'cantidad': cantidad if cantidad else None
                     }
 
-                    consulta_df = pd.DataFrame(consulta_data)
+                    # Agregar a la lista de consultas
+                    st.session_state.consultas.append(consulta_data)
+                    st.success("Entrada agregada correctamente!")
 
-                    # Generar archivo Excel
-                    consultas_excel = convertir_a_excel(consulta_df)
-
-                    # Proveer opción de descarga
-                    st.success("Consulta guardada con éxito!")
-                    st.download_button(
-                        label="Descargar Excel con la consulta guardada",
-                        data=consultas_excel,
-                        file_name='consulta_guardada.xlsx',
-                        mime="application/vnd.ms-excel"
-                    )
         else:
             st.error("Código de artículo no encontrado en la base de datos.")
+
+    # Mostrar las entradas guardadas
+    if st.session_state.consultas:
+        st.write("Entradas guardadas:")
+        consultas_df = pd.DataFrame(st.session_state.consultas)
+        st.dataframe(consultas_df)
+
+        # Botón para descargar el archivo Excel
+        consultas_excel = convertir_a_excel(consultas_df)
+        st.download_button(
+            label="Descargar Excel con todas las consultas",
+            data=consultas_excel,
+            file_name='consultas_guardadas.xlsx',
+            mime="application/vnd.ms-excel"
+        )
 else:
     st.error("No se pudo cargar la base de datos. Verifica la URL o el formato del archivo.")
