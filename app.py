@@ -2,6 +2,9 @@ import pandas as pd
 import streamlit as st
 import io
 import requests
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
+import cv2
+from pyzbar.pyzbar import decode  # Biblioteca para decodificar códigos de barras
 
 # Función para cargar los datos desde Google Sheets
 @st.cache_data
@@ -26,6 +29,25 @@ def convertir_a_excel(df):
     output.seek(0)
     return output
 
+# Clase para procesar la cámara y leer códigos de barras
+class BarcodeReader(VideoTransformerBase):
+    def __init__(self):
+        self.last_barcode = None  # Guardar el último código leído
+
+    def transform(self, frame):
+        img = frame.to_ndarray(format="bgr24")
+        decoded_objects = decode(img)  # Decodificar códigos de barras
+        for obj in decoded_objects:
+            self.last_barcode = obj.data.decode("utf-8")
+            # Dibujar un rectángulo alrededor del código de barras
+            points = obj.polygon
+            if len(points) > 4:  # Si el polígono tiene más de 4 puntos
+                hull = cv2.convexHull(np.array([p for p in points], dtype=np.float32))
+                points = hull
+            points = np.array(points, dtype=int)
+            cv2.polylines(img, [points], isClosed=True, color=(0, 255, 0), thickness=2)
+        return img
+
 # Configuración de la app
 st.title("Consulta de Artículos y Lotes")
 
@@ -37,64 +59,36 @@ if "consultas" not in st.session_state:
     st.session_state.consultas = []
 
 if base_df is not None:
-    # Entrada del código de artículo
-    codigo = st.text_input('Ingrese el código del artículo:')
+    # Buscar por código de artículo manualmente
+    tab1, tab2 = st.tabs(["Buscar Manualmente", "Escanear Código de Barras"])
 
-    if codigo:
-        # Filtrar los lotes del código de artículo ingresado
-        search_results = base_df[base_df['codarticulo'].str.contains(codigo, case=False, na=False)]
-
-        if not search_results.empty:
-            # Selección de lotes
-            lotes = search_results['lote'].dropna().unique().tolist()
-            lotes.append('Otro')  # Opción para agregar un nuevo lote
-            lote_seleccionado = st.selectbox('Seleccione un lote', lotes)
-
-            # Campo para ingresar un nuevo lote
-            if lote_seleccionado == 'Otro':
-                nuevo_lote = st.text_input('Ingrese el nuevo número de lote:')
+    with tab1:
+        codigo = st.text_input('Ingrese el código del artículo:')
+        if codigo:
+            # Filtrar los lotes del código de artículo ingresado
+            search_results = base_df[base_df['codarticulo'].str.contains(codigo, case=False, na=False)]
+            if not search_results.empty:
+                # Mostrar resultados
+                st.write("Resultados encontrados:")
+                st.dataframe(search_results)
             else:
-                nuevo_lote = lote_seleccionado
+                st.error("Código de artículo no encontrado en la base de datos.")
 
-            # Campo opcional para ingresar la cantidad
-            cantidad = st.text_input('Ingrese la cantidad (opcional):')
+    with tab2:
+        st.write("Activa la cámara para escanear un código de barras.")
+        webrtc_ctx = webrtc_streamer(key="barcode-reader", video_transformer_factory=BarcodeReader)
 
-            # Botón para agregar la entrada
-            if st.button('Agregar entrada'):
-                if not nuevo_lote:  # Validar que se ingrese un lote válido
-                    st.error("Debe ingresar un número de lote válido.")
+        if webrtc_ctx.video_transformer:
+            barcode = webrtc_ctx.video_transformer.last_barcode
+            if barcode:
+                st.write(f"Código de barras detectado: **{barcode}**")
+                # Buscar en la base de datos
+                search_results = base_df[base_df['codbarras'].str.contains(barcode, case=False, na=False)]
+                if not search_results.empty:
+                    st.write("Resultados encontrados:")
+                    st.dataframe(search_results)
                 else:
-                    # Crear un diccionario con los datos seleccionados
-                    consulta_data = {
-                        'codarticulo': codigo,
-                        'articulo': search_results.iloc[0]['articulo'] if 'articulo' in search_results.columns else None,
-                        'lote': nuevo_lote,
-                        'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
-                        'presentacion': search_results.iloc[0]['presentacion'] if 'presentacion' in search_results.columns else None,
-                        'vencimiento': search_results.iloc[0]['vencimiento'] if 'vencimiento' in search_results.columns else None,
-                        'cantidad': cantidad if cantidad else None
-                    }
+                    st.error("Código de barras no encontrado en la base de datos.")
 
-                    # Agregar a la lista de consultas
-                    st.session_state.consultas.append(consulta_data)
-                    st.success("Entrada agregada correctamente!")
-
-        else:
-            st.error("Código de artículo no encontrado en la base de datos.")
-
-    # Mostrar las entradas guardadas
-    if st.session_state.consultas:
-        st.write("Entradas guardadas:")
-        consultas_df = pd.DataFrame(st.session_state.consultas)
-        st.dataframe(consultas_df)
-
-        # Botón para descargar el archivo Excel
-        consultas_excel = convertir_a_excel(consultas_df)
-        st.download_button(
-            label="Descargar Excel con todas las consultas",
-            data=consultas_excel,
-            file_name='consultas_guardadas.xlsx',
-            mime="application/vnd.ms-excel"
-        )
 else:
     st.error("No se pudo cargar la base de datos. Verifica la URL o el formato del archivo.")
