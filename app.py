@@ -5,7 +5,7 @@ import io
 # Función para cargar los datos desde Google Sheets
 @st.cache_data
 def cargar_base():
-    url = "https://docs.google.com/spreadsheets/d/1Gd1NBBrSSQg5J8vSv-bZXyou3UX609Jd/export?format=xlsx"
+    url = "https://docs.google.com/spreadsheets/d/1Gk-EUifL3fODSc5kJ52gsNsxY9-hC1j4/export?format=xlsx"
     try:
         base = pd.read_excel(url)
         base.columns = base.columns.str.lower().str.strip()  # Normalizar nombres de columnas
@@ -66,7 +66,6 @@ if base_df is not None:
                         'articulo': search_results.iloc[0]['articulo'] if 'articulo' in search_results.columns else None,
                         'lote': nuevo_lote,
                         'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
-                        'nombre': search_results.iloc[0]['nombre'] if 'nombre' in search_results.columns else None,
                         'presentacion': search_results.iloc[0]['presentacion'] if 'presentacion' in search_results.columns else None,
                         'vencimiento': search_results.iloc[0]['vencimiento'] if 'vencimiento' in search_results.columns else None,
                         'cantidad': cantidad if cantidad else None
