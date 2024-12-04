@@ -5,5 +5,5 @@ requests
 streamlit-webrtc
 pyzbar
 opencv-python-headless
-zxing
+numpy
 
