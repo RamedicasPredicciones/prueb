@@ -84,6 +84,9 @@ if codigo:
 
         # Campo opcional para ingresar la cantidad
         cantidad = st.text_input('Ingrese la cantidad (opcional):')
+        
+        # Campo opcional para ingresar el nombre del usuario
+        usuario = st.text_input('Ingrese su nombre:')
 
         # Botón para agregar la entrada
         if st.button('Agregar entrada'):
@@ -98,7 +101,8 @@ if codigo:
                     'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
                     'presentacion': search_results.iloc[0]['presentacion'] if 'presentacion' in search_results.columns else None,
                     'vencimiento': search_results.iloc[0]['vencimiento'] if 'vencimiento' in search_results.columns else None,
-                    'cantidad': cantidad if cantidad else None
+                    'cantidad': cantidad if cantidad else None,
+                    'usuario': usuario if usuario else None  # Agregar el nombre del usuario
                 }
 
                 # Agregar a la lista de consultas
