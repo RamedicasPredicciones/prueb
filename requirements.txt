@@ -2,7 +2,3 @@ streamlit
 pandas
 openpyxl
 requests
-streamlit-webrtc
-pyzbar
-opencv-python-headless
-zxing
