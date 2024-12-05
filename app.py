@@ -89,8 +89,8 @@ else:
     nuevo_lote = lote_seleccionado
 
 # Ingresar cantidad y usuario
-cantidad = st.text_input("Ingrese la cantidad (opcional):")
-usuario = st.text_input("Ingrese su nombre (opcional):")
+cantidad = st.text_input("Ingrese la cantidad:")
+usuario = st.text_input("Ingrese su nombre:")
 
 # Botón para agregar entrada
 if st.button("Agregar entrada"):
