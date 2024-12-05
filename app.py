@@ -19,20 +19,6 @@ def cargar_base():
         st.error(f"Error al cargar la base de datos: {e}")
         return None
 
-# Clase para transformar el video y detectar códigos de barras
-class BarcodeReader(VideoTransformerBase):
-    def transform(self, frame):
-        # Convertir la imagen del video en un array de OpenCV
-        img = frame.to_ndarray(format="bgr24")
-        # Usar QRCodeDetector de OpenCV para detectar códigos de barras
-        detector = cv2.QRCodeDetector()
-        data, _, _ = detector.detectAndDecode(img)
-        # Si se detecta un código de barras, actualizar el código en el estado
-        if data:
-            st.session_state['barcode'] = data
-            cv2.putText(img, f"Barcode: {data}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        return img
-
 # Función para guardar datos en un archivo Excel
 def convertir_a_excel(df):
     output = io.BytesIO()
@@ -51,76 +37,58 @@ base_df = cargar_base()
 if "consultas" not in st.session_state:
     st.session_state.consultas = []
 
-# Escanear código de barras con cámara
-st.subheader("Escanear código de barras (Automático)")
-webrtc_streamer(
-    key="barcode-reader",
-    video_transformer_factory=BarcodeReader,
-    media_stream_constraints={"video": True, "audio": False}
-)
-
-# Opciones de entrada
+# Seleccionar método de entrada
 st.subheader("Buscar por código (Manual o Escaneado)")
-input_method = st.radio("Seleccione el método de entrada:", ("Manual", "Pistola (código de barras)"))
 
-if input_method == "Manual":
-    codigo = st.text_input("Ingrese el código del artículo:")
-else:
-    codigo = st.text_input("El código detectado por la pistola aparecerá aquí:", 
-                           value=st.session_state.get('barcode', ''))
+# Campo para ingresar el código (puede ser ingresado manualmente o por la pistola de escaneo)
+codigo = st.text_input("Ingrese el código del artículo:", value=st.session_state.get('barcode', ''))
 
-# Verificar si se ingresó o detectó un código
+# Si se escanea un código de barras, siempre se mostrará el código en la página
 if codigo:
-    if input_method == "Manual":
-        search_results = base_df[base_df['codarticulo'].str.contains(codigo, case=False, na=False)]
-    else:
-        barcode_results = base_df[base_df['codbarras'].str.contains(codigo, case=False, na=False)]
-        if not barcode_results.empty:
-            codigo = barcode_results.iloc[0]['codarticulo']  # Obtener el codarticulo asociado
-            search_results = base_df[base_df['codarticulo'].str.contains(codigo, case=False, na=False)]
-        else:
-            search_results = pd.DataFrame()
+    st.write(f"Código detectado: {codigo}")
 
+    # Realizar la búsqueda solo si el código es válido
+    search_results = base_df[base_df['codarticulo'].str.contains(codigo, case=False, na=False)]
     if not search_results.empty:
-        # Mostrar resultados y opciones
-        st.write(f"Código detectado: {codigo}")
+        # Mostrar detalles del artículo si se encuentra
         st.write("Detalles del artículo:")
         st.write(search_results[['codarticulo', 'articulo', 'presentacion', 'vencimiento']].drop_duplicates())
-
-        # Seleccionar lote
-        lotes = search_results['lote'].dropna().unique().tolist()
-        lotes.append('Otro')  # Opción para agregar un nuevo lote
-        lote_seleccionado = st.selectbox("Seleccione un lote:", lotes)
-
-        # Ingresar nuevo lote si se selecciona 'Otro'
-        if lote_seleccionado == "Otro":
-            nuevo_lote = st.text_input("Ingrese el nuevo número de lote:")
-        else:
-            nuevo_lote = lote_seleccionado
-
-        # Ingresar cantidad y usuario
-        cantidad = st.text_input("Ingrese la cantidad (opcional):")
-        usuario = st.text_input("Ingrese su nombre (opcional):")
-
-        # Botón para agregar entrada
-        if st.button("Agregar entrada"):
-            if not nuevo_lote:
-                st.error("Debe ingresar un número de lote válido.")
-            else:
-                consulta_data = {
-                    'codarticulo': codigo,
-                    'articulo': search_results.iloc[0]['articulo'] if 'articulo' in search_results.columns else None,
-                    'lote': nuevo_lote,
-                    'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
-                    'presentacion': search_results.iloc[0]['presentacion'] if 'presentacion' in search_results.columns else None,
-                    'vencimiento': search_results.iloc[0]['vencimiento'] if 'vencimiento' in search_results.columns else None,
-                    'cantidad': cantidad if cantidad else None,
-                    'usuario': usuario if usuario else None
-                }
-                st.session_state.consultas.append(consulta_data)
-                st.success("Entrada agregada correctamente!")
     else:
-        st.error("Código no encontrado en la base de datos.")
+        # Mostrar mensaje si no se encuentra el código
+        st.warning("Código no encontrado en la base de datos.")
+
+    # Seleccionar lote
+    lotes = search_results['lote'].dropna().unique().tolist() if not search_results.empty else []
+    lotes.append('Otro')  # Opción para agregar un nuevo lote
+    lote_seleccionado = st.selectbox("Seleccione un lote:", lotes)
+
+    # Ingresar nuevo lote si se selecciona 'Otro'
+    if lote_seleccionado == "Otro":
+        nuevo_lote = st.text_input("Ingrese el nuevo número de lote:")
+    else:
+        nuevo_lote = lote_seleccionado
+
+    # Ingresar cantidad y usuario
+    cantidad = st.text_input("Ingrese la cantidad (opcional):")
+    usuario = st.text_input("Ingrese su nombre (opcional):")
+
+    # Botón para agregar entrada
+    if st.button("Agregar entrada"):
+        if not nuevo_lote:
+            st.error("Debe ingresar un número de lote válido.")
+        else:
+            consulta_data = {
+                'codarticulo': codigo,
+                'articulo': search_results.iloc[0]['articulo'] if 'articulo' in search_results.columns else None,
+                'lote': nuevo_lote,
+                'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
+                'presentacion': search_results.iloc[0]['presentacion'] if 'presentacion' in search_results.columns else None,
+                'vencimiento': search_results.iloc[0]['vencimiento'] if 'vencimiento' in search_results.columns else None,
+                'cantidad': cantidad if cantidad else None,
+                'usuario': usuario if usuario else None
+            }
+            st.session_state.consultas.append(consulta_data)
+            st.success("Entrada agregada correctamente!")
 
 # Mostrar las entradas guardadas
 if st.session_state.consultas:
