@@ -40,8 +40,15 @@ if "consultas" not in st.session_state:
 # Seleccionar método de entrada
 st.subheader("Buscar por código (Manual o Escaneado)")
 
-# Campo para ingresar el código (puede ser ingresado manualmente o por la pistola de escaneo)
-codigo = st.text_input("Ingrese el código del artículo:", value=st.session_state.get('barcode', ''))
+# Opción para elegir el método de entrada
+input_method = st.radio("Seleccione el método de entrada:", ("Manual", "Pistola (código de barras)"))
+
+# Campo para ingresar el código (se llenará dependiendo del método seleccionado)
+if input_method == "Manual":
+    codigo = st.text_input("Ingrese el código del artículo:")
+else:
+    # Si se selecciona pistola, se mostrará el código de barras detectado
+    codigo = st.text_input("El código detectado por la pistola aparecerá aquí:", value=st.session_state.get('barcode', ''))
 
 # Si se escanea un código de barras, siempre se mostrará el código en la página
 if codigo:
