@@ -50,12 +50,21 @@ else:
     # Si se selecciona pistola, se mostrará el código de barras detectado
     codigo = st.text_input("El código detectado por la pistola aparecerá aquí:", value=st.session_state.get('barcode', ''))
 
-# Si se escanea un código de barras, siempre se mostrará el código en la página
+# Buscar el artículo basado en el código de barras o el código de artículo ingresado
 if codigo:
-    st.write(f"Código detectado: {codigo}")
+    # Buscar por código de artículo si es ingresado manualmente
+    if input_method == "Manual":
+        search_results = base_df[base_df['codarticulo'].str.contains(codigo, case=False, na=False)]
+    else:
+        # Buscar por código de barras si es escaneado por la pistola
+        barcode_results = base_df[base_df['codbarras'].str.contains(codigo, case=False, na=False)]
+        if not barcode_results.empty:
+            # Si encuentra el código de barras, obtiene el código de artículo
+            codigo = barcode_results.iloc[0]['codarticulo']
+            search_results = base_df[base_df['codarticulo'].str.contains(codigo, case=False, na=False)]
+        else:
+            search_results = pd.DataFrame()  # Si no encuentra nada
 
-    # Realizar la búsqueda solo si el código es válido
-    search_results = base_df[base_df['codarticulo'].str.contains(codigo, case=False, na=False)]
     if not search_results.empty:
         # Mostrar detalles del artículo si se encuentra
         st.write("Detalles del artículo:")
