@@ -2,8 +2,6 @@ import pandas as pd
 import streamlit as st
 import io
 import requests
-import cv2
-from streamlit_webrtc import VideoTransformerBase, webrtc_streamer
 
 # Función para cargar los datos desde Google Sheets
 @st.cache_data
@@ -69,6 +67,7 @@ if codigo:
 # Si no se encuentra el artículo o lote, permitir ingreso manual de los campos
 if search_results.empty:
     st.warning("Código no encontrado. Ingrese los datos manualmente.")
+    codarticulo_manual = st.text_input("Ingrese el código del artículo manualmente:")
     articulo = st.text_input("Ingrese el nombre del artículo:")
     presentacion = st.text_input("Ingrese la presentación del artículo:")
     vencimiento = st.date_input("Ingrese la fecha de vencimiento del artículo:")
@@ -98,7 +97,7 @@ if st.button("Agregar entrada"):
         st.error("Debe ingresar un número de lote válido.")
     else:
         consulta_data = {
-            'codarticulo': codigo,
+            'codarticulo': codarticulo_manual if search_results.empty else search_results.iloc[0]['codarticulo'],
             'articulo': articulo if search_results.empty else search_results.iloc[0]['articulo'],
             'lote': nuevo_lote,
             'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
