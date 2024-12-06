@@ -21,7 +21,22 @@ def cargar_base():
 def convertir_a_excel(df):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Consulta")
+        # Exportar en el orden deseado
+        df.to_excel(
+            writer, 
+            index=False, 
+            sheet_name="Consulta", 
+            columns=[
+                "codbarras", 
+                "articulo", 
+                "presentacion", 
+                "cantidad", 
+                "vencimiento", 
+                "lote", 
+                "novedad", 
+                "bodega"
+            ]
+        )
     output.seek(0)
     return output
 
@@ -87,8 +102,28 @@ if lote_seleccionado == "Otro":
 else:
     nuevo_lote = lote_seleccionado
 
-# Ingresar cantidad y usuario
+# Ingresar cantidad
 cantidad = st.text_input("Ingrese la cantidad:")
+
+# Seleccionar bodega
+bodega = st.selectbox("Seleccione la bodega:", ["A011", "C014", "D012", "D013"])
+
+# Seleccionar novedad
+novedad = st.selectbox(
+    "Seleccione la novedad:", 
+    [
+        "Vencido",
+        "Avería",
+        "Rayado",
+        "Fecha corta",
+        "Invima vencido",
+        "Alerta sanitaria",
+        "Comercial",
+        "Cadena de frio"
+    ]
+)
+
+# Ingresar usuario
 usuario = st.text_input("Ingrese su nombre:")
 
 # Botón para agregar entrada
@@ -104,6 +139,8 @@ if st.button("Agregar entrada"):
             'presentacion': presentacion if search_results.empty else search_results.iloc[0]['presentacion'],
             'vencimiento': vencimiento if search_results.empty else search_results.iloc[0]['vencimiento'],
             'cantidad': cantidad if cantidad else None,
+            'bodega': bodega,
+            'novedad': novedad,
             'usuario': usuario if usuario else None
         }
         st.session_state.consultas.append(consulta_data)
