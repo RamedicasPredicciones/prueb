@@ -33,8 +33,7 @@ def convertir_a_excel(df):
             columns=[
                 "codbarras", 
                 "articulo", 
-                "presentacion",
-                "laboratorio",
+                "presentacion", 
                 "cantidad", 
                 "vencimiento", 
                 "lote", 
@@ -94,7 +93,7 @@ if search_results.empty:
 else:
     # Mostrar detalles del artículo si se encuentra
     st.write("Detalles del artículo:")
-    st.write(search_results[['codarticulo', 'articulo', 'presentacion','laboratorio','vencimiento']].drop_duplicates())
+    st.write(search_results[['codarticulo', 'articulo', 'presentacion', 'vencimiento']].drop_duplicates())
 
 # Seleccionar lote
 lotes = search_results['lote'].dropna().unique().tolist() if not search_results.empty else []
@@ -142,7 +141,6 @@ if st.button("Agregar entrada"):
             'lote': nuevo_lote,
             'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
             'presentacion': presentacion if search_results.empty else search_results.iloc[0]['presentacion'],
-            'laboratorio': laboratorio if search_results.empty else search_results.iloc[0]['laboratorio'],
             'vencimiento': vencimiento if search_results.empty else search_results.iloc[0]['vencimiento'],
             'cantidad': cantidad if cantidad else None,
             'bodega': bodega,
@@ -168,3 +166,4 @@ if st.session_state.consultas:
     )
 else:
     st.warning("No hay entradas guardadas.")
+
