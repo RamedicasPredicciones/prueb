@@ -12,11 +12,6 @@ def cargar_base():
         response.raise_for_status()  # Verificar si la solicitud fue exitosa
         base = pd.read_excel(io.BytesIO(response.content), sheet_name="OP's GHG")
         base.columns = base.columns.str.lower().str.strip()  # Normalizar nombres de columnas
-        
-        # Asegurarse de que la columna 'vencimiento' esté en formato de fecha
-        if 'vencimiento' in base.columns:
-            base['vencimiento'] = pd.to_datetime(base['vencimiento'], errors='coerce')
-        
         return base
     except Exception as e:
         st.error(f"Error al cargar la base de datos: {e}")
@@ -40,8 +35,7 @@ def convertir_a_excel(df):
                 "lote", 
                 "novedad", 
                 "bodega"
-            ],
-            date_format="YYYY-MM-DD"  # Asegurar formato de fecha en Excel
+            ]
         )
     output.seek(0)
     return output
@@ -143,7 +137,7 @@ if st.button("Agregar entrada"):
             'lote': nuevo_lote,
             'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
             'presentacion': presentacion if search_results.empty else search_results.iloc[0]['presentacion'],
-            'vencimiento': str(vencimiento) if search_results.empty else str(search_results.iloc[0]['vencimiento']),
+            'vencimiento': vencimiento if search_results.empty else search_results.iloc[0]['vencimiento'],
             'cantidad': cantidad if cantidad else None,
             'bodega': bodega,
             'novedad': novedad,
