@@ -52,8 +52,7 @@ base_url = "https://docs.google.com/spreadsheets/d/1Gnbn5Pn_tth_b1GdhJvoEbK7eIbR
 maestra_url = "https://docs.google.com/spreadsheets/d/19myWtMrvsor2P_XHiifPgn8YKdTWE39O/export?format=xlsx"
 
 base_df = cargar_base(base_url, sheet_name="OP's GHG")
-maestra_df = cargar_base(maestra_url, sheet_name="Sheet1")  # Cambiar 'Sheet1' si el nombre de la hoja es otro
-
+maestra_df = cargar_base(maestra_url, sheet_name="Hoja1") 
 # Lista para almacenar las entradas
 if "consultas" not in st.session_state:
     st.session_state.consultas = []
