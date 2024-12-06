@@ -33,13 +33,13 @@ def convertir_a_excel(df):
                 "codbarras", 
                 "articulo", 
                 "presentacion", 
+                "laboratorio",
                 "cantidad", 
                 "vencimiento", 
                 "lote", 
                 "novedad", 
                 "bodega",
-                "usuario",
-                "lab"  # Incluir la columna 'LAB'
+                "usuario" 
             ]
         )
     output.seek(0)
@@ -142,12 +142,12 @@ if st.button("Agregar entrada"):
             'lote': nuevo_lote,
             'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
             'presentacion': presentacion if search_results.empty else search_results.iloc[0]['presentacion'],
+                        'laboratorio': search_results.iloc[0]['lab'] if 'lab' in search_results.columns else None,
             'vencimiento': vencimiento if search_results.empty else search_results.iloc[0]['vencimiento'],
             'cantidad': cantidad if cantidad else None,
             'bodega': bodega,
             'novedad': novedad,
-            'usuario': usuario if usuario else None,
-            'lab': search_results.iloc[0]['lab'] if 'lab' in search_results.columns else None  # Agregar LAB
+            'usuario': usuario if usuario else None
         }
         st.session_state.consultas.append(consulta_data)
         st.success("Entrada agregada correctamente!")
