@@ -33,6 +33,7 @@ def convertir_a_excel(df):
                 "codbarras", 
                 "articulo", 
                 "presentacion", 
+                "laboratorio",
                 "cantidad", 
                 "vencimiento", 
                 "lote", 
