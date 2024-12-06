@@ -38,7 +38,8 @@ def convertir_a_excel(df):
                 "vencimiento", 
                 "lote", 
                 "novedad", 
-                "bodega"
+                "bodega",
+                "usuario"
             ]
         )
     output.seek(0)
