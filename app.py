@@ -33,8 +33,8 @@ def convertir_a_excel(df):
             columns=[
                 "codbarras", 
                 "articulo", 
-                "presentacion", 
-                "laboratorio",  # Nueva columna añadida
+                "presentacion",
+                "laboratorio",
                 "cantidad", 
                 "vencimiento", 
                 "lote", 
@@ -90,12 +90,11 @@ if search_results.empty:
     codarticulo_manual = st.text_input("Ingrese el código del artículo manualmente:")
     articulo = st.text_input("Ingrese el nombre del artículo:")
     presentacion = st.text_input("Ingrese la presentación del artículo:")
-    laboratorio = st.text_input("Ingrese el laboratorio del artículo:")  # Campo laboratorio
     vencimiento = st.date_input("Ingrese la fecha de vencimiento del artículo:")
 else:
     # Mostrar detalles del artículo si se encuentra
     st.write("Detalles del artículo:")
-    st.write(search_results[['codarticulo', 'articulo', 'presentacion', 'laboratorio', 'vencimiento']].drop_duplicates())
+    st.write(search_results[['codarticulo', 'articulo', 'presentacion','laboratorio','vencimiento']].drop_duplicates())
 
 # Seleccionar lote
 lotes = search_results['lote'].dropna().unique().tolist() if not search_results.empty else []
@@ -143,7 +142,7 @@ if st.button("Agregar entrada"):
             'lote': nuevo_lote,
             'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
             'presentacion': presentacion if search_results.empty else search_results.iloc[0]['presentacion'],
-            'laboratorio': laboratorio if search_results.empty else search_results.iloc[0]['laboratorio'],  # Nuevo campo
+            'laboratorio': laboratorio if search_results.empty else search_results.iloc[0]['laboratorio'],
             'vencimiento': vencimiento if search_results.empty else search_results.iloc[0]['vencimiento'],
             'cantidad': cantidad if cantidad else None,
             'bodega': bodega,
