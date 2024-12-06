@@ -101,14 +101,18 @@ else:
     st.write(search_results[['codarticulo', 'articulo', 'presentacion', 'lab']].drop_duplicates())
     vencimiento = st.date_input("Ingrese la fecha de vencimiento del artículo:")
 
-lotes = search_results['lote'].dropna().unique().tolist() if not search_results.empty else []
-lotes.append('Otro')
-lote_seleccionado = st.selectbox("Seleccione un lote:", lotes)
-
-if lote_seleccionado == "Otro":
+# Ingresar lote
+if search_results.empty or 'lote' not in search_results.columns:
+    st.warning("Debe ingresar el lote manualmente.")
     nuevo_lote = st.text_input("Ingrese el nuevo número de lote:")
 else:
-    nuevo_lote = lote_seleccionado
+    lotes = search_results['lote'].dropna().unique().tolist()
+    lotes.append('Otro')  # Agregar opción para un nuevo lote
+    lote_seleccionado = st.selectbox("Seleccione un lote:", lotes)
+    if lote_seleccionado == "Otro":
+        nuevo_lote = st.text_input("Ingrese el nuevo número de lote:")
+    else:
+        nuevo_lote = lote_seleccionado
 
 cantidad = st.text_input("Ingrese la cantidad:")
 bodega = st.selectbox("Seleccione la bodega:", ["A011", "C014", "D012", "D013"])
