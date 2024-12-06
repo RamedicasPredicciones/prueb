@@ -13,13 +13,9 @@ def cargar_base():
         base = pd.read_excel(io.BytesIO(response.content), sheet_name="OP's GHG")
         base.columns = base.columns.str.lower().str.strip()  # Normalizar nombres de columnas
         return base
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error al realizar la solicitud HTTP: {e}")
-    except ValueError as e:
-        st.error(f"Error al procesar los datos: {e}")
     except Exception as e:
-        st.error(f"Error desconocido: {e}")
-    return None
+        st.error(f"Error al cargar la base de datos: {e}")
+        return None
 
 # Función para guardar datos en un archivo Excel
 def convertir_a_excel(df):
@@ -27,8 +23,7 @@ def convertir_a_excel(df):
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         # Asegurarse de que la columna "vencimiento" esté en formato de fecha
         if "vencimiento" in df.columns:
-            df["vencimiento"] = pd.to_datetime(df["vencimiento"], errors="coerce")
-            df["vencimiento"] = df["vencimiento"].dt.strftime("%Y-%m-%d")
+            df["vencimiento"] = pd.to_datetime(df["vencimiento"], errors="coerce").dt.strftime("%Y-%m-%d")
         
         # Exportar en el orden deseado
         df.to_excel(
@@ -39,6 +34,7 @@ def convertir_a_excel(df):
                 "codbarras", 
                 "articulo", 
                 "presentacion", 
+                "laboratorio",  # Nueva columna añadida
                 "cantidad", 
                 "vencimiento", 
                 "lote", 
@@ -94,11 +90,12 @@ if search_results.empty:
     codarticulo_manual = st.text_input("Ingrese el código del artículo manualmente:")
     articulo = st.text_input("Ingrese el nombre del artículo:")
     presentacion = st.text_input("Ingrese la presentación del artículo:")
+    laboratorio = st.text_input("Ingrese el laboratorio del artículo:")  # Campo laboratorio
     vencimiento = st.date_input("Ingrese la fecha de vencimiento del artículo:")
 else:
     # Mostrar detalles del artículo si se encuentra
     st.write("Detalles del artículo:")
-    st.write(search_results[['codarticulo', 'articulo', 'presentacion', 'vencimiento']].drop_duplicates())
+    st.write(search_results[['codarticulo', 'articulo', 'presentacion', 'laboratorio', 'vencimiento']].drop_duplicates())
 
 # Seleccionar lote
 lotes = search_results['lote'].dropna().unique().tolist() if not search_results.empty else []
@@ -114,17 +111,7 @@ else:
 # Ingresar cantidad
 cantidad = st.text_input("Ingrese la cantidad:")
 
-# Validar que la cantidad sea un número positivo
-if cantidad:
-    try:
-        cantidad = int(cantidad)
-        if cantidad <= 0:
-            st.error("La cantidad debe ser mayor a cero.")
-    except ValueError:
-        st.error("Por favor ingrese un número válido para la cantidad.")
-
 # Seleccionar bodega
-st.subheader("Detalles de ubicación")
 bodega = st.selectbox("Seleccione la bodega:", ["A011", "C014", "D012", "D013"])
 
 # Seleccionar novedad
@@ -156,6 +143,7 @@ if st.button("Agregar entrada"):
             'lote': nuevo_lote,
             'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
             'presentacion': presentacion if search_results.empty else search_results.iloc[0]['presentacion'],
+            'laboratorio': laboratorio if search_results.empty else search_results.iloc[0]['laboratorio'],  # Nuevo campo
             'vencimiento': vencimiento if search_results.empty else search_results.iloc[0]['vencimiento'],
             'cantidad': cantidad if cantidad else None,
             'bodega': bodega,
@@ -170,6 +158,14 @@ if st.session_state.consultas:
     st.write("Entradas guardadas:")
     consultas_df = pd.DataFrame(st.session_state.consultas)
     st.dataframe(consultas_df)
-else:
-    st.write("No hay entradas guardadas.")
 
+    # Botón para descargar el archivo Excel
+    consultas_excel = convertir_a_excel(consultas_df)
+    st.download_button(
+        label="Descargar Excel con todas las consultas",
+        data=consultas_excel,
+        file_name="consultas_guardadas.xlsx",
+        mime="application/vnd.ms-excel"
+    )
+else:
+    st.warning("No hay entradas guardadas.")
