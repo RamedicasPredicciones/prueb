@@ -3,14 +3,13 @@ import streamlit as st
 import io
 import requests
 
-# Función para cargar los datos desde Google Sheets
-@st.cache_data
+# Función para cargar los datos desde Google Sheets (sin cache)
 def cargar_base():
-    url = "https://docs.google.com/spreadsheets/d/1H9shheU3l1monudc1k-YsGbHTXliC8Se/export?format=xlsx"  # Nueva URL
+    url = "https://docs.google.com/spreadsheets/d/1Gnbn5Pn_tth_b1GdhJvoEbK7eIbRR8uy/export?format=xlsx"
     try:
         response = requests.get(url)
         response.raise_for_status()  # Verificar si la solicitud fue exitosa
-        base = pd.read_excel(io.BytesIO(response.content), sheet_name="Hoja1")  # Cambiar a "Hoja1"
+        base = pd.read_excel(io.BytesIO(response.content), sheet_name="OP's GHG")
         base.columns = base.columns.str.lower().str.strip()  # Normalizar nombres de columnas
         return base
     except Exception as e:
@@ -25,7 +24,7 @@ def convertir_a_excel(df):
         if "vencimiento" in df.columns:
             df["vencimiento"] = pd.to_datetime(df["vencimiento"], errors="coerce").dt.strftime("%Y-%m-%d")
         
-        # Exportar en el orden deseado, incluyendo la columna 'usuario' al final
+        # Exportar en el orden deseado
         df.to_excel(
             writer, 
             index=False, 
