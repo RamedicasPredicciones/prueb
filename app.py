@@ -24,7 +24,7 @@ def convertir_a_excel(df):
         if "vencimiento" in df.columns:
             df["vencimiento"] = pd.to_datetime(df["vencimiento"], errors="coerce").dt.strftime("%Y-%m-%d")
         
-        # Exportar en el orden deseado
+        # Exportar en el orden deseado, incluyendo la columna 'LAB'
         df.to_excel(
             writer, 
             index=False, 
@@ -38,7 +38,8 @@ def convertir_a_excel(df):
                 "lote", 
                 "novedad", 
                 "bodega",
-                "usuario"
+                "usuario",
+                "lab"  # Incluir la columna 'LAB'
             ]
         )
     output.seek(0)
@@ -91,9 +92,9 @@ if search_results.empty:
     presentacion = st.text_input("Ingrese la presentación del artículo:")
     vencimiento = st.date_input("Ingrese la fecha de vencimiento del artículo:")
 else:
-    # Mostrar detalles del artículo si se encuentra
+    # Mostrar detalles del artículo si se encuentra, incluyendo la columna 'LAB'
     st.write("Detalles del artículo:")
-    st.write(search_results[['codarticulo', 'articulo', 'presentacion', 'vencimiento']].drop_duplicates())
+    st.write(search_results[['codarticulo', 'articulo', 'presentacion', 'vencimiento', 'lab']].drop_duplicates())
 
 # Seleccionar lote
 lotes = search_results['lote'].dropna().unique().tolist() if not search_results.empty else []
@@ -145,7 +146,8 @@ if st.button("Agregar entrada"):
             'cantidad': cantidad if cantidad else None,
             'bodega': bodega,
             'novedad': novedad,
-            'usuario': usuario if usuario else None
+            'usuario': usuario if usuario else None,
+            'lab': search_results.iloc[0]['lab'] if 'lab' in search_results.columns else None  # Agregar LAB
         }
         st.session_state.consultas.append(consulta_data)
         st.success("Entrada agregada correctamente!")
