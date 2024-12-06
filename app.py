@@ -2,40 +2,43 @@ import pandas as pd
 import streamlit as st
 import io
 import requests
-from concurrent.futures import ThreadPoolExecutor
 
 # Función para cargar los datos desde Google Sheets
-def cargar_base(url, sheet_name, columnas=None):
+def cargar_base(url, sheet_name):
     try:
         response = requests.get(url)
         response.raise_for_status()  # Verificar si la solicitud fue exitosa
-        base = pd.read_excel(io.BytesIO(response.content), sheet_name=sheet_name, usecols=columnas)
+        base = pd.read_excel(io.BytesIO(response.content), sheet_name=sheet_name)
         base.columns = base.columns.str.lower().str.strip()  # Normalizar nombres de columnas
         return base
     except Exception as e:
         st.error(f"Error al cargar la base de datos desde {url}: {e}")
         return None
 
-# Cargar bases en paralelo
-def cargar_bases():
-    with ThreadPoolExecutor() as executor:
-        future_base = executor.submit(cargar_base, base_url, "OP's GHG", ["CodArticulo", "CodBarras", "Articulo", "Presentacion", "Lab"])
-        future_maestra = executor.submit(cargar_base, maestra_url, "Hoja1", ["CodArt", "Cod_Barras", "NomArt", "Presentación", "Fabr"])
-        return future_base.result(), future_maestra.result()
-
 # Función para guardar datos en un archivo Excel
 def convertir_a_excel(df):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        # Asegurarse de que la columna "vencimiento" esté en formato de fecha
         if "vencimiento" in df.columns:
             df["vencimiento"] = pd.to_datetime(df["vencimiento"], errors="coerce").dt.strftime("%Y-%m-%d")
+        
+        # Exportar en el orden deseado, incluyendo la columna 'LAB'
         df.to_excel(
             writer, 
             index=False, 
             sheet_name="Consulta", 
             columns=[
-                "codbarras", "articulo", "presentacion", "cantidad",
-                "vencimiento", "lote", "novedad", "bodega", "usuario", "lab"
+                "codbarras", 
+                "articulo", 
+                "presentacion", 
+                "cantidad", 
+                "vencimiento", 
+                "lote", 
+                "novedad", 
+                "bodega",
+                "usuario",
+                "lab"  # Incluir la columna 'LAB'
             ]
         )
     output.seek(0)
@@ -44,25 +47,17 @@ def convertir_a_excel(df):
 # Configuración de la app
 st.title("Consulta de Artículos y Lotes")
 
-# URLs de las bases
+# Cargar las bases de datos (evitando duplicar operaciones)
 base_url = "https://docs.google.com/spreadsheets/d/1Gnbn5Pn_tth_b1GdhJvoEbK7eIbRR8uy/export?format=xlsx"
 maestra_url = "https://docs.google.com/spreadsheets/d/19myWtMrvsor2P_XHiifPgn8YKdTWE39O/export?format=xlsx"
 
 with st.spinner("Cargando bases de datos..."):
-    base_df, maestra_df = cargar_bases()
+    base_df = cargar_base(base_url, sheet_name="OP's GHG")
+    maestra_df = cargar_base(maestra_url, sheet_name="Hoja1") 
 
 # Verificar si las bases se cargaron correctamente
 if base_df is None or maestra_df is None:
     st.stop()
-
-# Ajustar la base maestra
-maestra_df.rename(columns={
-    'codart': 'codarticulo',
-    'cod_barras': 'codbarras',
-    'nomart': 'articulo',
-    'presentación': 'presentacion',
-    'fabr': 'lab'
-}, inplace=True)
 
 # Lista para almacenar las entradas
 if "consultas" not in st.session_state:
@@ -84,12 +79,25 @@ if codigo:
             codigo = barcode_results.iloc[0]['codarticulo']
             search_results = base_df.query("codarticulo.str.contains(@codigo, case=False, na=False)", engine="python")
     
-    # Buscar en la base maestra si no se encuentra en la principal
+    # Si no se encuentra, buscar en la base maestra
     if search_results.empty:
         st.info("Código no encontrado en la base principal. Buscando en la base maestra...")
-        search_results = maestra_df.query("codarticulo.str.contains(@codigo, case=False, na=False)", engine="python")
+        if input_method == "Manual":
+            search_results = maestra_df.query("codart.str.contains(@codigo, case=False, na=False)", engine="python")
+        else:
+            search_results = maestra_df.query("cod_barras.str.contains(@codigo, case=False, na=False)", engine="python")
+        
+        # Renombrar columnas si se encontraron resultados
+        if not search_results.empty:
+            search_results.rename(columns={
+                'codart': 'codarticulo',
+                'cod_barras': 'codbarras',
+                'nomart': 'articulo',
+                'presentación': 'presentacion',
+                'fabr': 'lab'
+            }, inplace=True)
 
-# Mostrar o ingresar los datos
+# Si no se encuentra en ninguna base
 if search_results.empty:
     st.warning("Código no encontrado en ninguna base. Ingrese los datos manualmente.")
     codarticulo_manual = st.text_input("Ingrese el código del artículo manualmente:")
@@ -101,7 +109,10 @@ else:
     st.write(search_results[['codarticulo', 'articulo', 'presentacion', 'lab']].drop_duplicates())
     vencimiento = st.date_input("Ingrese la fecha de vencimiento del artículo:")
 
+# Ingresar lote
 nuevo_lote = st.text_input("Ingrese el nuevo número de lote:")
+
+# Ingresar los demás datos
 cantidad = st.text_input("Ingrese la cantidad:")
 bodega = st.selectbox("Seleccione la bodega:", ["A011", "C014", "D012", "D013"])
 novedad = st.selectbox("Seleccione la novedad:", [
@@ -110,7 +121,7 @@ novedad = st.selectbox("Seleccione la novedad:", [
 ])
 usuario = st.text_input("Ingrese su nombre:")
 
-# Agregar entrada
+# Guardar la entrada
 if st.button("Agregar entrada"):
     if not nuevo_lote:
         st.error("Debe ingresar un número de lote válido.")
@@ -131,8 +142,9 @@ if st.button("Agregar entrada"):
         st.session_state.consultas.append(consulta_data)
         st.success("Entrada agregada correctamente!")
 
-# Mostrar entradas guardadas
+# Mostrar las entradas guardadas
 if st.session_state.consultas:
+    st.write("Entradas guardadas:")
     consultas_df = pd.DataFrame(st.session_state.consultas)
     st.dataframe(consultas_df)
 
