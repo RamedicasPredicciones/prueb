@@ -21,6 +21,10 @@ def cargar_base():
 def convertir_a_excel(df):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        # Asegurarse de que la columna "vencimiento" esté en formato de fecha
+        if "vencimiento" in df.columns:
+            df["vencimiento"] = pd.to_datetime(df["vencimiento"], errors="coerce").dt.strftime("%Y-%m-%d")
+        
         # Exportar en el orden deseado
         df.to_excel(
             writer, 
