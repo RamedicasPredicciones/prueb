@@ -4,16 +4,15 @@ import io
 import requests
 
 # Función para cargar los datos desde Google Sheets (sin cache)
-def cargar_base():
-    url = "https://docs.google.com/spreadsheets/d/1Gnbn5Pn_tth_b1GdhJvoEbK7eIbRR8uy/export?format=xlsx"
+def cargar_base(url, sheet_name):
     try:
         response = requests.get(url)
         response.raise_for_status()  # Verificar si la solicitud fue exitosa
-        base = pd.read_excel(io.BytesIO(response.content), sheet_name="OP's GHG")
+        base = pd.read_excel(io.BytesIO(response.content), sheet_name=sheet_name)
         base.columns = base.columns.str.lower().str.strip()  # Normalizar nombres de columnas
         return base
     except Exception as e:
-        st.error(f"Error al cargar la base de datos: {e}")
+        st.error(f"Error al cargar la base de datos desde {url}: {e}")
         return None
 
 # Función para guardar datos en un archivo Excel
@@ -48,8 +47,12 @@ def convertir_a_excel(df):
 # Configuración de la app
 st.title("Consulta de Artículos y Lotes")
 
-# Cargar la base de datos
-base_df = cargar_base()
+# Cargar las bases de datos
+base_url = "https://docs.google.com/spreadsheets/d/1Gnbn5Pn_tth_b1GdhJvoEbK7eIbRR8uy/export?format=xlsx"
+maestra_url = "https://docs.google.com/spreadsheets/d/19myWtMrvsor2P_XHiifPgn8YKdTWE39O/export?format=xlsx"
+
+base_df = cargar_base(base_url, sheet_name="OP's GHG")
+maestra_df = cargar_base(maestra_url, sheet_name="Sheet1")  # Cambiar 'Sheet1' si el nombre de la hoja es otro
 
 # Lista para almacenar las entradas
 if "consultas" not in st.session_state:
@@ -58,80 +61,64 @@ if "consultas" not in st.session_state:
 # Seleccionar método de entrada
 st.subheader("Buscar por código (Manual o Escaneado)")
 
-# Opción para elegir el método de entrada
 input_method = st.radio("Seleccione el método de entrada:", ("Manual", "Pistola (código de barras)"))
+codigo = st.text_input("Ingrese el código del artículo:" if input_method == "Manual" else "El código detectado por la pistola aparecerá aquí:")
 
-# Campo para ingresar el código (se llenará dependiendo del método seleccionado)
-if input_method == "Manual":
-    codigo = st.text_input("Ingrese el código del artículo:")
-else:
-    # Si se selecciona pistola, se mostrará el código de barras detectado
-    codigo = st.text_input("El código detectado por la pistola aparecerá aquí:", value=st.session_state.get('barcode', ''))
-
-# Buscar el artículo basado en el código de barras o el código de artículo ingresado
 search_results = pd.DataFrame()
 if codigo:
-    # Buscar por código de artículo si es ingresado manualmente
     if input_method == "Manual":
         search_results = base_df[base_df['codarticulo'].str.contains(codigo, case=False, na=False)]
     else:
-        # Buscar por código de barras si es escaneado por la pistola
         barcode_results = base_df[base_df['codbarras'].str.contains(codigo, case=False, na=False)]
         if not barcode_results.empty:
-            # Si encuentra el código de barras, obtiene el código de artículo
             codigo = barcode_results.iloc[0]['codarticulo']
             search_results = base_df[base_df['codarticulo'].str.contains(codigo, case=False, na=False)]
-        else:
-            search_results = pd.DataFrame()  # Si no encuentra nada
 
-# Si no se encuentra el artículo o lote, permitir ingreso manual de los campos
+if search_results.empty and codigo:
+    # Buscar en la base maestra si no se encuentra en la base principal
+    st.info("Código no encontrado en la base principal. Buscando en la base maestra...")
+    if input_method == "Manual":
+        maestra_results = maestra_df[maestra_df['codart'].str.contains(codigo, case=False, na=False)]
+    else:
+        maestra_results = maestra_df[maestra_df['cod_barras'].str.contains(codigo, case=False, na=False)]
+    if not maestra_results.empty:
+        search_results = maestra_results.rename(columns={
+            'codart': 'codarticulo',
+            'cod_barras': 'codbarras',
+            'nomart': 'articulo',
+            'presentación': 'presentacion',
+            'fabr': 'lab'
+        })
+
+# Si no se encuentra en ninguna base
 if search_results.empty:
-    st.warning("Código no encontrado. Ingrese los datos manualmente.")
+    st.warning("Código no encontrado en ninguna base. Ingrese los datos manualmente.")
     codarticulo_manual = st.text_input("Ingrese el código del artículo manualmente:")
     articulo = st.text_input("Ingrese el nombre del artículo:")
     presentacion = st.text_input("Ingrese la presentación del artículo:")
     vencimiento = st.date_input("Ingrese la fecha de vencimiento del artículo:")
 else:
-    # Mostrar detalles del artículo si se encuentra, incluyendo la columna 'LAB'
-    st.write("Detalles del artículo:")
-    st.write(search_results[['codarticulo', 'articulo', 'presentacion', 'vencimiento', 'lab']].drop_duplicates())
+    st.write("Detalles del artículo encontrado:")
+    st.write(search_results[['codarticulo', 'articulo', 'presentacion', 'lab']].drop_duplicates())
+    vencimiento = st.date_input("Ingrese la fecha de vencimiento del artículo:")
 
-# Seleccionar lote
 lotes = search_results['lote'].dropna().unique().tolist() if not search_results.empty else []
-lotes.append('Otro')  # Opción para agregar un nuevo lote
+lotes.append('Otro')
 lote_seleccionado = st.selectbox("Seleccione un lote:", lotes)
 
-# Ingresar nuevo lote si se selecciona 'Otro'
 if lote_seleccionado == "Otro":
     nuevo_lote = st.text_input("Ingrese el nuevo número de lote:")
 else:
     nuevo_lote = lote_seleccionado
 
-# Ingresar cantidad
 cantidad = st.text_input("Ingrese la cantidad:")
-
-# Seleccionar bodega
 bodega = st.selectbox("Seleccione la bodega:", ["A011", "C014", "D012", "D013"])
-
-# Seleccionar novedad
-novedad = st.selectbox(
-    "Seleccione la novedad:", 
-    [
-        "Vencido",
-        "Avería",
-        "Rayado",
-        "Fecha corta",
-        "Invima vencido",
-        "Alerta sanitaria",
-        "Comercial",
-        "Cadena de frio"
-    ]
-)
-
-# Ingresar usuario
+novedad = st.selectbox("Seleccione la novedad:", [
+    "Vencido", "Avería", "Rayado", "Fecha corta", "Invima vencido",
+    "Alerta sanitaria", "Comercial", "Cadena de frio"
+])
 usuario = st.text_input("Ingrese su nombre:")
 
-# Botón para agregar entrada
 if st.button("Agregar entrada"):
     if not nuevo_lote:
         st.error("Debe ingresar un número de lote válido.")
@@ -142,23 +129,21 @@ if st.button("Agregar entrada"):
             'lote': nuevo_lote,
             'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
             'presentacion': presentacion if search_results.empty else search_results.iloc[0]['presentacion'],
-            'vencimiento': vencimiento if search_results.empty else search_results.iloc[0]['vencimiento'],
+            'vencimiento': vencimiento,
             'cantidad': cantidad if cantidad else None,
             'bodega': bodega,
             'novedad': novedad,
             'usuario': usuario if usuario else None,
-            'lab': search_results.iloc[0]['lab'] if 'lab' in search_results.columns else None  # Agregar LAB
+            'lab': search_results.iloc[0]['lab'] if 'lab' in search_results.columns else None
         }
         st.session_state.consultas.append(consulta_data)
         st.success("Entrada agregada correctamente!")
 
-# Mostrar las entradas guardadas
 if st.session_state.consultas:
     st.write("Entradas guardadas:")
     consultas_df = pd.DataFrame(st.session_state.consultas)
     st.dataframe(consultas_df)
 
-    # Botón para descargar el archivo Excel
     consultas_excel = convertir_a_excel(consultas_df)
     st.download_button(
         label="Descargar Excel con todas las consultas",
