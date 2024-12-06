@@ -12,15 +12,10 @@ def cargar_base():
         response.raise_for_status()  # Verificar si la solicitud fue exitosa
         base = pd.read_excel(io.BytesIO(response.content), sheet_name="OP's GHG")
         base.columns = base.columns.str.lower().str.strip()  # Normalizar nombres de columnas
-        
-        # Asegurarse de que la columna 'vencimiento' esté en formato de fecha (solo si existe)
-        if 'vencimiento' in base.columns:
-            base['vencimiento'] = pd.to_datetime(base['vencimiento'], errors='coerce')
-        
         return base
     except Exception as e:
         st.error(f"Error al cargar la base de datos: {e}")
-        return pd.DataFrame()  # Retorna un DataFrame vacío para evitar errores en otras partes
+        return None
 
 # Función para guardar datos en un archivo Excel
 def convertir_a_excel(df):
@@ -40,8 +35,7 @@ def convertir_a_excel(df):
                 "lote", 
                 "novedad", 
                 "bodega"
-            ],
-            date_format="YYYY-MM-DD"  # Asegurar formato de fecha en Excel
+            ]
         )
     output.seek(0)
     return output
@@ -71,7 +65,7 @@ else:
 
 # Buscar el artículo basado en el código de barras o el código de artículo ingresado
 search_results = pd.DataFrame()
-if codigo and not base_df.empty:
+if codigo:
     # Buscar por código de artículo si es ingresado manualmente
     if input_method == "Manual":
         search_results = base_df[base_df['codarticulo'].str.contains(codigo, case=False, na=False)]
@@ -143,7 +137,7 @@ if st.button("Agregar entrada"):
             'lote': nuevo_lote,
             'codbarras': search_results.iloc[0]['codbarras'] if 'codbarras' in search_results.columns else None,
             'presentacion': presentacion if search_results.empty else search_results.iloc[0]['presentacion'],
-            'vencimiento': str(vencimiento) if search_results.empty else str(search_results.iloc[0]['vencimiento']),
+            'vencimiento': vencimiento if search_results.empty else search_results.iloc[0]['vencimiento'],
             'cantidad': cantidad if cantidad else None,
             'bodega': bodega,
             'novedad': novedad,
