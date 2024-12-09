@@ -149,8 +149,7 @@ if st.session_state.consultas:
     st.dataframe(consultas_df)
 
     consultas_excel = convertir_a_excel(consultas_df)
-    st.download_button(pip install pandas
-
+    st.download_button(
         label="Descargar Excel con todas las consultas",
         data=consultas_excel,
         file_name="consultas_guardadas.xlsx",
