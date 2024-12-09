@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 import io
+import os
 import requests
 
 # Función para cargar los datos desde Google Sheets
@@ -15,37 +16,40 @@ def cargar_base(url, sheet_name):
         st.error(f"Error al cargar la base de datos desde {url}: {e}")
         return None
 
-# Función para guardar datos en un archivo Excel
+# Función para guardar el historial de consultas en un archivo Excel
+def guardar_historial(consultas_df, filename="historial_consultas.xlsx"):
+    if os.path.exists(filename):
+        # Si el archivo ya existe, añadimos los nuevos datos al final
+        consultas_df.to_excel(filename, index=False, mode='a', header=False)
+    else:
+        # Si no existe el archivo, lo creamos y escribimos los datos
+        consultas_df.to_excel(filename, index=False)
+
+# Función para cargar el historial de consultas desde un archivo Excel
+def cargar_historial(filename="historial_consultas.xlsx"):
+    if os.path.exists(filename):
+        return pd.read_excel(filename)
+    else:
+        return pd.DataFrame()  # Retorna un DataFrame vacío si no existe el archivo
+
+# Función para convertir DataFrame a un archivo Excel
 def convertir_a_excel(df):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        # Asegurarse de que la columna "vencimiento" esté en formato de fecha
-        if "vencimiento" in df.columns:
-            df["vencimiento"] = pd.to_datetime(df["vencimiento"], errors="coerce").dt.strftime("%Y-%m-%d")
-        
-        # Exportar en el orden deseado, incluyendo la columna 'LAB'
-        df.to_excel(
-            writer, 
-            index=False, 
-            sheet_name="Consulta", 
-            columns=[
-                "codbarras", 
-                "articulo", 
-                "presentacion", 
-                "cantidad", 
-                "vencimiento", 
-                "lote", 
-                "novedad", 
-                "bodega",
-                "usuario",
-                "lab"  # Incluir la columna 'LAB'
-            ]
-        )
+        df.to_excel(writer, index=False, sheet_name="Consulta")
     output.seek(0)
     return output
 
 # Configuración de la app
 st.title("Consulta de Artículos y Lotes")
+
+# Cargar el historial de consultas desde el archivo
+historial_df = cargar_historial()
+
+# Mostrar el historial de consultas si existe
+if not historial_df.empty:
+    st.write("Historial de Consultas:")
+    st.dataframe(historial_df)
 
 # Cargar las bases de datos (evitando duplicar operaciones)
 base_url = "https://docs.google.com/spreadsheets/d/1Gnbn5Pn_tth_b1GdhJvoEbK7eIbRR8uy/export?format=xlsx"
@@ -53,7 +57,7 @@ maestra_url = "https://docs.google.com/spreadsheets/d/19myWtMrvsor2P_XHiifPgn8YK
 
 with st.spinner("Cargando bases de datos..."):
     base_df = cargar_base(base_url, sheet_name="OP's GHG")
-    maestra_df = cargar_base(maestra_url, sheet_name="Hoja1") 
+    maestra_df = cargar_base(maestra_url, sheet_name="Hoja1")
 
 # Verificar si las bases se cargaron correctamente
 if base_df is None or maestra_df is None:
@@ -142,6 +146,10 @@ if st.button("Agregar entrada"):
         st.session_state.consultas.append(consulta_data)
         st.success("Entrada agregada correctamente!")
 
+        # Guardar en el historial
+        consultas_df = pd.DataFrame(st.session_state.consultas)
+        guardar_historial(consultas_df)
+
 # Mostrar las entradas guardadas
 if st.session_state.consultas:
     st.write("Entradas guardadas:")
@@ -157,3 +165,4 @@ if st.session_state.consultas:
     )
 else:
     st.warning("No hay entradas guardadas.")
+
