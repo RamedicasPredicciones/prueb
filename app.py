@@ -1,10 +1,11 @@
 import pandas as pd
 import streamlit as st
 import io
-import os
 import requests
+import os
+import pickle
 
-# Función para cargar los datos desde Google Sheets
+# Función para cargar la base de datos desde Google Sheets
 def cargar_base(url, sheet_name):
     try:
         response = requests.get(url)
@@ -16,40 +17,27 @@ def cargar_base(url, sheet_name):
         st.error(f"Error al cargar la base de datos desde {url}: {e}")
         return None
 
-# Función para guardar el historial de consultas en un archivo Excel
-def guardar_historial(consultas_df, filename="historial_consultas.xlsx"):
-    if os.path.exists(filename):
-        # Si el archivo ya existe, añadimos los nuevos datos al final
-        consultas_df.to_excel(filename, index=False, mode='a', header=False)
-    else:
-        # Si no existe el archivo, lo creamos y escribimos los datos
-        consultas_df.to_excel(filename, index=False)
+# Función para guardar datos en archivo temporal
+def guardar_historial(historial):
+    try:
+        with open("historial.pkl", "wb") as f:
+            pickle.dump(historial, f)
+    except Exception as e:
+        st.error(f"Error al guardar historial: {e}")
 
-# Función para cargar el historial de consultas desde un archivo Excel
-def cargar_historial(filename="historial_consultas.xlsx"):
-    if os.path.exists(filename):
-        return pd.read_excel(filename)
-    else:
-        return pd.DataFrame()  # Retorna un DataFrame vacío si no existe el archivo
-
-# Función para convertir DataFrame a un archivo Excel
-def convertir_a_excel(df):
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Consulta")
-    output.seek(0)
-    return output
+# Función para cargar el historial desde el archivo
+def cargar_historial():
+    if os.path.exists("historial.pkl"):
+        try:
+            with open("historial.pkl", "rb") as f:
+                return pickle.load(f)
+        except Exception as e:
+            st.error(f"Error al cargar historial: {e}")
+            return []
+    return []
 
 # Configuración de la app
 st.title("Consulta de Artículos y Lotes")
-
-# Cargar el historial de consultas desde el archivo
-historial_df = cargar_historial()
-
-# Mostrar el historial de consultas si existe
-if not historial_df.empty:
-    st.write("Historial de Consultas:")
-    st.dataframe(historial_df)
 
 # Cargar las bases de datos (evitando duplicar operaciones)
 base_url = "https://docs.google.com/spreadsheets/d/1Gnbn5Pn_tth_b1GdhJvoEbK7eIbRR8uy/export?format=xlsx"
@@ -57,15 +45,14 @@ maestra_url = "https://docs.google.com/spreadsheets/d/19myWtMrvsor2P_XHiifPgn8YK
 
 with st.spinner("Cargando bases de datos..."):
     base_df = cargar_base(base_url, sheet_name="OP's GHG")
-    maestra_df = cargar_base(maestra_url, sheet_name="Hoja1")
+    maestra_df = cargar_base(maestra_url, sheet_name="Hoja1") 
 
 # Verificar si las bases se cargaron correctamente
 if base_df is None or maestra_df is None:
     st.stop()
 
-# Lista para almacenar las entradas
-if "consultas" not in st.session_state:
-    st.session_state.consultas = []
+# Cargar historial de consultas
+consultas = cargar_historial()
 
 # Seleccionar método de entrada
 st.subheader("Buscar por código (Manual o Escaneado)")
@@ -143,17 +130,14 @@ if st.button("Agregar entrada"):
             'usuario': usuario if usuario else None,
             'lab': search_results.iloc[0]['lab'] if 'lab' in search_results.columns else None
         }
-        st.session_state.consultas.append(consulta_data)
+        consultas.append(consulta_data)
+        guardar_historial(consultas)  # Guardar el historial actualizado
         st.success("Entrada agregada correctamente!")
 
-        # Guardar en el historial
-        consultas_df = pd.DataFrame(st.session_state.consultas)
-        guardar_historial(consultas_df)
-
 # Mostrar las entradas guardadas
-if st.session_state.consultas:
+if consultas:
     st.write("Entradas guardadas:")
-    consultas_df = pd.DataFrame(st.session_state.consultas)
+    consultas_df = pd.DataFrame(consultas)
     st.dataframe(consultas_df)
 
     consultas_excel = convertir_a_excel(consultas_df)
@@ -165,4 +149,3 @@ if st.session_state.consultas:
     )
 else:
     st.warning("No hay entradas guardadas.")
-
