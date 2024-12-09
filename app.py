@@ -5,10 +5,43 @@ import requests
 
 # Función para cargar los datos desde Google Sheets
 def cargar_base(url, sheet_name):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Verificar si la solicitud fue exitosa
+        base = pd.read_excel(io.BytesIO(response.content), sheet_name=sheet_name)
+        base.columns = base.columns.str.lower().str.strip()  # Normalizar nombres de columnas
+        return base
+    except Exception as e:
+        st.error(f"Error al cargar la base de datos desde {url}: {e}")
         return None
 
 # Función para guardar datos en un archivo Excel
 def convertir_a_excel(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        # Asegurarse de que la columna "vencimiento" esté en formato de fecha
+        if "vencimiento" in df.columns:
+            df["vencimiento"] = pd.to_datetime(df["vencimiento"], errors="coerce").dt.strftime("%Y-%m-%d")
+        
+        # Exportar en el orden deseado, incluyendo la columna 'LAB'
+        df.to_excel(
+            writer, 
+            index=False, 
+            sheet_name="Consulta", 
+            columns=[
+                "codbarras", 
+                "articulo", 
+                "presentacion", 
+                "cantidad", 
+                "vencimiento", 
+                "lote", 
+                "novedad", 
+                "bodega",
+                "usuario",
+                "lab"  # Incluir la columna 'LAB'
+            ]
+        )
+    output.seek(0)
     return output
 
 # Configuración de la app
@@ -116,7 +149,8 @@ if st.session_state.consultas:
     st.dataframe(consultas_df)
 
     consultas_excel = convertir_a_excel(consultas_df)
-    st.download_button(
+    st.download_button(pip install pandas
+
         label="Descargar Excel con todas las consultas",
         data=consultas_excel,
         file_name="consultas_guardadas.xlsx",
