@@ -117,7 +117,7 @@ cantidad = st.text_input("Ingrese la cantidad:")
 bodega = st.selectbox("Seleccione la bodega:", ["A011", "C014", "D012", "D013"])
 novedad = st.selectbox("Seleccione la novedad:", [
     "Vencido", "Avería", "Rayado", "Fecha corta", "Invima vencido",
-    "Alerta sanitaria", "Comercial", "Cadena de frio"
+    "Alerta sanitaria", "Comercial", "Cadena de frio", "No aplica"
 ])
 usuario = st.text_input("Ingrese su nombre:")
 
