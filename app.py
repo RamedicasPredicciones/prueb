@@ -2,10 +2,8 @@ import pandas as pd
 import streamlit as st
 import io
 import requests
-import os
-import pickle
 
-# Función para cargar la base de datos desde Google Sheets
+# Función para cargar los datos desde Google Sheets
 def cargar_base(url, sheet_name):
     try:
         response = requests.get(url)
@@ -17,24 +15,34 @@ def cargar_base(url, sheet_name):
         st.error(f"Error al cargar la base de datos desde {url}: {e}")
         return None
 
-# Función para guardar datos en archivo temporal
-def guardar_historial(historial):
-    try:
-        with open("historial.pkl", "wb") as f:
-            pickle.dump(historial, f)
-    except Exception as e:
-        st.error(f"Error al guardar historial: {e}")
-
-# Función para cargar el historial desde el archivo
-def cargar_historial():
-    if os.path.exists("historial.pkl"):
-        try:
-            with open("historial.pkl", "rb") as f:
-                return pickle.load(f)
-        except Exception as e:
-            st.error(f"Error al cargar historial: {e}")
-            return []
-    return []
+# Función para guardar datos en un archivo Excel
+def convertir_a_excel(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        # Asegurarse de que la columna "vencimiento" esté en formato de fecha
+        if "vencimiento" in df.columns:
+            df["vencimiento"] = pd.to_datetime(df["vencimiento"], errors="coerce").dt.strftime("%Y-%m-%d")
+        
+        # Exportar en el orden deseado, incluyendo la columna 'LAB'
+        df.to_excel(
+            writer, 
+            index=False, 
+            sheet_name="Consulta", 
+            columns=[
+                "codbarras", 
+                "articulo", 
+                "presentacion", 
+                "cantidad", 
+                "vencimiento", 
+                "lote", 
+                "novedad", 
+                "bodega",
+                "usuario",
+                "lab"  # Incluir la columna 'LAB'
+            ]
+        )
+    output.seek(0)
+    return output
 
 # Configuración de la app
 st.title("Consulta de Artículos y Lotes")
@@ -51,8 +59,9 @@ with st.spinner("Cargando bases de datos..."):
 if base_df is None or maestra_df is None:
     st.stop()
 
-# Cargar historial de consultas
-consultas = cargar_historial()
+# Lista para almacenar las entradas
+if "consultas" not in st.session_state:
+    st.session_state.consultas = []
 
 # Seleccionar método de entrada
 st.subheader("Buscar por código (Manual o Escaneado)")
@@ -130,14 +139,13 @@ if st.button("Agregar entrada"):
             'usuario': usuario if usuario else None,
             'lab': search_results.iloc[0]['lab'] if 'lab' in search_results.columns else None
         }
-        consultas.append(consulta_data)
-        guardar_historial(consultas)  # Guardar el historial actualizado
+        st.session_state.consultas.append(consulta_data)
         st.success("Entrada agregada correctamente!")
 
 # Mostrar las entradas guardadas
-if consultas:
+if st.session_state.consultas:
     st.write("Entradas guardadas:")
-    consultas_df = pd.DataFrame(consultas)
+    consultas_df = pd.DataFrame(st.session_state.consultas)
     st.dataframe(consultas_df)
 
     consultas_excel = convertir_a_excel(consultas_df)
