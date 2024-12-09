@@ -63,6 +63,10 @@ if base_df is None or maestra_df is None:
 if "consultas" not in st.session_state:
     st.session_state.consultas = []
 
+# Comprobar si hay datos guardados de una sesión anterior
+if "recuperado" not in st.session_state:
+    st.session_state.recuperado = False
+
 # Seleccionar método de entrada
 st.subheader("Buscar por código (Manual o Escaneado)")
 input_method = st.radio("Seleccione el método de entrada:", ("Manual", "Pistola (código de barras)"))
@@ -155,5 +159,11 @@ if st.session_state.consultas:
         file_name="consultas_guardadas.xlsx",
         mime="application/vnd.ms-excel"
     )
+
+    # Verificar si se recuperaron los datos después de una recarga
+    if st.session_state.recuperado:
+        st.success("Archivo recuperado correctamente.")
+
 else:
     st.warning("No hay entradas guardadas.")
+
